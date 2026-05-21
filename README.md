@@ -1,44 +1,44 @@
-# 🤖 Soroush Multi-Messenger Syncer
+# 🤖 ربات سینک‌کننده پیام سروش به سایر پیام‌رسان‌ها (Robot Sender)
 
 [![Docker](https://img.shields.io/badge/Docker-ready-blue.svg)](https://www.docker.com/)
 [![Python](https://img.shields.io/badge/Python-3.11+-green.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Framework-009688.svg)](https://fastapi.tiangolo.com/)
 
-An enterprise-grade synchronization bot that mirrors content from a **Soroush Plus** channel to **Telegram, Eitaa, Rubika, and Bale** in real-time.
+این پروژه یک سیستم پیشرفته و قابل اعتماد برای انتقال خودکار پیام‌ها از کانال **سروش پلاس** به **تلگرام، ایتا، روبیکا و بله** است. این ربات به صورت کاملاً ماژولار و با قابلیت اطمینان بالا طراحی شده است.
 
 ---
 
-## ✨ Features
+## ✨ ویژگی‌های اصلی
 
-- **🔄 Full Media Support:** Synchronizes Text, Photos, Videos, and Files.
-- **🛡️ Rock-Solid Reliability:** Built with Celery & Redis for asynchronous task handling.
-- **🔄 Smart Retries:** Automatic exponential backoff if a platform's API is temporarily down.
-- **🚫 Zero Duplicates:** PostgreSQL-backed message logging ensures content is never posted twice.
-- **📊 Monitoring API:** REST endpoints to check health and view synchronization logs.
-- **🐳 Dockerized:** One-command deployment for all services.
-
----
-
-## 🏗️ How it Works
-
-The system polls your Soroush channel for new content. Once a new post is detected, it normalizes the data and fans out individual tasks for each target platform. This ensures that a failure on one platform (e.g., a Telegram timeout) doesn't affect the others.
-
-> **Read more:** [System Architecture Details](./ARCHITECTURE.md)
+- **🔄 پشتیبانی کامل از رسانه‌ها:** انتقال متن، عکس، ویدیو و فایل.
+- **🛡️ قابلیت اطمینان بالا:** استفاده از Celery و Redis برای مدیریت وظایف به صورت ناهمگام (Async).
+- **🔄 تلاش مجدد هوشمند (Retry):** اگر یکی از پیام‌رسان‌ها قطع باشد، ربات به صورت خودکار با سیستم Exponential Backoff دوباره تلاش می‌کند.
+- **🚫 جلوگیری از پیام تکراری:** استفاده از دیتابیس PostgreSQL برای ذخیره لاگ‌ها و جلوگیری از ارسال مجدد یک پیام.
+- **📊 سیستم مانیتورینگ:** دارای API برای چک کردن وضعیت سلامت ربات و مشاهده لاگ‌های ارسال.
+- **🐳 استقرار آسان با داکر:** تمام سرویس‌ها با یک دستور ساده اجرا می‌شوند.
 
 ---
 
-## 🚀 Deployment Guide
+## 🏗️ نحوه کارکرد سیستم
 
-### 1. Prerequisites
-- A Linux server (VPS) or local machine with **Docker** and **Docker Compose** installed.
-- Bot tokens for all 5 platforms (Soroush, Telegram, Eitaa, Rubika, Bale).
+ربات به صورت مداوم کانال سروش شما را چک می‌کند. به محض یافتن پست جدید، آن را تحلیل کرده و برای هر پیام‌رسان یک "تسک" مجزا ایجاد می‌کند. این یعنی اگر ایتا با مشکل مواجه شود، تاثیری روی ارسال تلگرام یا بله نخواهد داشت.
 
-### 2. Prepare Configuration
-Clone this repository and create your environment file:
+> **جزئیات فنی:** [معماری سیستم و نحوه طراحی](./ARCHITECTURE.md)
+
+---
+
+## 🚀 راهنمای نصب و اجرا
+
+### ۱. پیش‌نیازها
+- یک سرور (VPS) یا سیستم شخصی که **Docker** و **Docker Compose** روی آن نصب باشد.
+- توکن (Token) ربات برای تمام پلتفرم‌ها.
+
+### ۲. تنظیمات (Configuration)
+ابتدا مخزن را کلون کنید و فایل تنظیمات را بسازید:
 ```bash
 cp .env.example .env
 ```
-Edit the `.env` file and fill in your credentials:
+فایل `.env` را باز کرده و توکن‌ها و ID کانال‌های خود را وارد کنید:
 ```env
 # Bot Tokens
 SOROUSH_TOKEN=...
@@ -53,42 +53,42 @@ TELEGRAM_CHANNEL_ID=@my_channel
 ...
 ```
 
-### 3. Launch the Stack
-Run the following command to start the Database, Redis, Web API, and Workers:
+### ۳. اجرای برنامه
+با استفاده از دستور زیر، تمام بخش‌های ربات (دیتابیس، ردیس، ورکرها و API) را اجرا کنید:
 ```bash
 docker-compose up -d --build
 ```
 
-### 4. Verify the Status
-Once started, you can check if everything is running correctly:
-- **API Status:** `http://your-server-ip:8000/health`
-- **Sync Logs:** `http://your-server-ip:8000/logs`
-- **Real-time Logs:** `docker-compose logs -f worker`
+### ۴. بررسی وضعیت
+بعد از اجرا، می‌توانید وضعیت را از طریق آدرس‌های زیر چک کنید:
+- **وضعیت سلامت:** `http://your-server-ip:8000/health`
+- **لاگ‌های ارسال:** `http://your-server-ip:8000/logs`
+- **مشاهده لاگ‌های زنده:** `docker-compose logs -f worker`
 
 ---
 
-## 🛠️ API Reference
+## 🛠️ لیست APIها
 
-| Endpoint | Method | Description |
+| متد | آدرس | توضیحات |
 | :--- | :--- | :--- |
-| `/` | `GET` | System version and basic status. |
-| `/health` | `GET` | Database and connectivity check. |
-| `/logs` | `GET` | View recent synchronization history. |
-| `/sync/trigger` | `POST` | Manually force a poll for new messages. |
+| `GET` | `/` | چک کردن وضعیت کلی و ورژن برنامه. |
+| `GET` | `/health` | بررسی اتصال دیتابیس و سلامت سیستم. |
+| `GET` | `/logs` | مشاهده تاریخچه آخرین پیام‌های سینک شده. |
+| `POST` | `/sync/trigger` | اجرای دستی عملیات چک کردن سروش. |
 
 ---
 
-## 📝 Iranian Messenger Bot Setup Tips
-- **Eitaa:** You must get your token from [Eitaayar](https://eitaayar.ir) and add the `@sender` bot as an administrator to your channel.
-- **Soroush:** Use the `@mrbot` in Soroush Plus to create your bot and get the token.
-- **Rubika/Bale:** Use their respective `@BotFather` accounts within the apps.
+## 📝 نکات مهم برای پیام‌رسان‌های ایرانی
+- **ایتا:** حتماً باید از [ایتا‌یار](https://eitaayar.ir) توکن بگیرید و ربات `@sender` را ادمین کانال خود کنید.
+- **سروش:** برای گرفتن توکن از بازوی `@mrbot` در سروش پلاس استفاده کنید.
+- **روبیکا و بله:** از بازوی `@BotFather` در خود برنامه استفاده کنید.
 
 ---
 
-## 🤝 Contributing
-Contributions are welcome! If you want to add a new platform (like Gap or Virasty), simply create a new adapter in `src/adapters/` and add it to the tasks.
+## 🤝 مشارکت در پروژه
+اگر قصد دارید پلتفرم جدیدی (مثل گپ یا ویراستی) اضافه کنید، کافیست یک آداپتور جدید در مسیر `src/adapters/` بسازید.
 
 ---
 
-## 📜 License
-This project is open-source and available under the [MIT License](LICENSE).
+## 📜 لایسنس
+این پروژه تحت لایسنس [MIT](LICENSE) منتشر شده است.
