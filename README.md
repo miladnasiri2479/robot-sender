@@ -37,7 +37,13 @@ A flexible Python-based message synchronization tool. Unlike standard bots, this
 2. Follow the interactive prompts to enter your tokens and channel IDs.
 3. Choose `y` when asked to launch with Docker.
 
-### 🔹 Manual (Linux/Docker)
+### 🔹 Linux / macOS
+1. Open your terminal in the project folder.
+2. Give execution permission: `chmod +x setup.sh`
+3. Run the script: `./setup.sh`
+4. Follow the interactive prompts and choose `y` to launch with Docker.
+
+### 🔹 Manual (Docker)
 1. Edit `config.json` with your credentials.
 2. Run: `docker-compose up -d --build`
 
