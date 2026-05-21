@@ -1,0 +1,28 @@
+{
+  "source": "soroush",
+  "source_channel_id": "your_soroush_channel_id",
+  "interval": 60,
+  "targets": {
+    "telegram": "@your_telegram_channel",
+    "bale": "your_bale_channel_id",
+    "eitaa": "your_eitaa_channel_id",
+    "rubika": "your_rubika_channel_id"
+  },
+  "credentials": {
+    "soroush": {
+      "token": "your_soroush_token"
+    },
+    "telegram": {
+      "token": "your_telegram_token"
+    },
+    "bale": {
+      "token": "your_bale_token"
+    },
+    "eitaa": {
+      "token": "your_eitaa_token"
+    },
+    "rubika": {
+      "token": "your_rubika_token"
+    }
+  }
+}

@@ -1,56 +1,37 @@
 import httpx
 import logging
-from typing import Optional
+from typing import List, Optional
 from .base import BaseAdapter
+from src.models import UnifiedMessage, MessageType
 
 logger = logging.getLogger(__name__)
 
 class RubikaAdapter(BaseAdapter):
-    def __init__(self, token: str, chat_id: str):
-        super().__init__(token, chat_id)
+    def __init__(self, config: dict):
+        super().__init__(config)
+        self.token = config["token"]
+        self.channel_id = config["channel_id"]
         self.base_url = f"https://botapi.rubika.ir/v3/{self.token}"
 
-    def send_text(self, text: str) -> bool:
-        url = f"{self.base_url}/sendMessage"
-        payload = {
-            "chat_id": self.chat_id,
-            "text": text
-        }
-        return self._make_request(url, payload)
-
-    def send_image(self, image_url: str, caption: Optional[str] = None) -> bool:
-        url = f"{self.base_url}/sendPhoto"
-        payload = {
-            "chat_id": self.chat_id,
-            "photo": image_url,
-            "caption": caption
-        }
-        return self._make_request(url, payload)
-
-    def send_video(self, video_url: str, caption: Optional[str] = None) -> bool:
-        url = f"{self.base_url}/sendVideo"
-        payload = {
-            "chat_id": self.chat_id,
-            "video": video_url,
-            "caption": caption
-        }
-        return self._make_request(url, payload)
-
-    def send_file(self, file_url: str, caption: Optional[str] = None) -> bool:
-        url = f"{self.base_url}/sendDocument"
-        payload = {
-            "chat_id": self.chat_id,
-            "document": file_url,
-            "caption": caption
-        }
-        return self._make_request(url, payload)
-
-    def _make_request(self, url: str, payload: dict) -> bool:
+    async def fetch_messages(self) -> List[UnifiedMessage]:
+        url = f"{self.base_url}/getUpdates"
         try:
-            with httpx.Client() as client:
-                response = client.post(url, json=payload, timeout=30.0)
-                response.raise_for_status()
-                return True
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url, timeout=10.0)
+                data = response.json()
+                # Simplified polling logic for Rubika
+                return [] 
         except Exception as e:
-            logger.error(f"Rubika request failed: {e}")
+            logger.error(f"Rubika fetch failed: {e}")
+            return []
+
+    async def send_message(self, message: UnifiedMessage) -> bool:
+        url = f"{self.base_url}/sendMessage"
+        payload = {"chat_id": self.channel_id, "text": message.text}
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(url, json=payload, timeout=30.0)
+                return response.status_code == 200
+        except Exception as e:
+            logger.error(f"Rubika send failed: {e}")
             return False

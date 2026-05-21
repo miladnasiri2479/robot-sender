@@ -1,18 +1,17 @@
-from sqlalchemy import Column, Integer, String, DateTime, JSON
-from datetime import datetime
-from .database import Base
+from pydantic import BaseModel
+from typing import Optional, Dict, Any
+from enum import Enum
 
-class MessageLog(Base):
-    __tablename__ = "message_logs"
+class MessageType(str, Enum):
+    TEXT = "text"
+    IMAGE = "image"
+    VIDEO = "video"
+    FILE = "file"
 
-    id = Column(Integer, primary_key=True, index=True)
-    soroush_msg_id = Column(String, unique=True, index=True, nullable=False)
-    content_type = Column(String)  # text, image, video, etc.
-    content_data = Column(JSON)    # original payload or normalized data
-    synced_at = Column(DateTime, default=datetime.utcnow)
-    
-    # Track status per platform
-    telegram_status = Column(String, default="pending")
-    eitaa_status = Column(String, default="pending")
-    rubika_status = Column(String, default="pending")
-    bale_status = Column(String, default="pending")
+class UnifiedMessage(BaseModel):
+    source_id: str          # Original message ID from the source platform
+    source_platform: str    # e.g., "soroush", "telegram"
+    type: MessageType
+    text: Optional[str] = None
+    file_url: Optional[str] = None
+    raw_data: Optional[Dict[str, Any]] = None

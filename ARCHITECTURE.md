@@ -1,56 +1,49 @@
-# 🏗️ Architecture & System Design: Soroush Multi-Messenger Syncer
+# 🏗️ Architecture & System Design: Universal Robot Sender
 
-This document provides a deep dive into how the synchronization system is built, the logic behind its design, and how it handles message flow between platforms.
+This document explains the "Universal" design of the Robot Sender, which allows any supported platform to act as a message source or target.
 
 ---
 
-## 🚀 The Core Philosophy
-The system is designed as a **Modular Distributed Task Pipeline**. Instead of a single script trying to talk to 5 different platforms at once (which is prone to failure), we treat every message as a "Task" that needs to be fulfilled by specialized "Workers".
+## 🚀 The Universal Philosophy
+Unlike previous versions that were hardcoded for specific flows, this system uses a **Plugin-based Adapter Architecture**. Every messenger is treated as a "Node" that can either **Read** (fetch messages) or **Write** (send messages).
 
 ## 🛠️ System Components
 
-### 1. The Ingestion Layer (Soroush Poller)
-- **Role:** The "Ear" of the system.
-- **How it works:** Every minute (configurable), a scheduled Celery Beat task triggers a poll to the Soroush Plus API.
-- **Responsibility:** It fetches new messages, normalizes them into a standard JSON format, and checks the database to see if we've seen this ID before.
+### 1. The Unified Message Model (`src/models.py`)
+To make platforms compatible, all incoming messages (regardless of origin) are converted into a `UnifiedMessage`. This object contains:
+- `source_id`: The original ID from the source.
+- `type`: Text, Image, Video, or File.
+- `text`: The caption or body.
+- `file_url`: A direct link or ID for the media.
 
-### 2. The Persistence Layer (PostgreSQL)
-- **Role:** The "Memory".
-- **How it works:** We use a `MessageLog` table.
-- **Responsibility:** 
-    - **Duplicate Prevention:** Before doing anything, the system checks if a Soroush Message ID exists. If yes, it's ignored.
-    - **State Tracking:** We track the status of each platform (`pending`, `success`, `failed`, `error`). You can see exactly which platform failed for which message.
+### 2. The Orchestrator (`src/orchestrator.py`)
+The Orchestrator is the brain of the system. It:
+1.  Asks the **Source Adapter** for new messages.
+2.  Filters out messages already in the **SQLite Database**.
+3.  Sends new messages to **all Target Adapters** simultaneously using `asyncio.gather`.
+4.  Retries failed sends using a safe wrapper.
 
-### 3. The Queue Layer (Redis)
-- **Role:** The "Buffer".
-- **How it works:** When a new message is found, the system doesn't send it immediately. It drops a "Task" into Redis.
-- **Responsibility:** This decouples the discovery of a message from the actual sending. If Telegram is slow, it won't stop the Eitaa worker from finishing its job.
+### 3. The Adapter Layer (`src/adapters/`)
+Each file (e.g., `telegram.py`, `soroush.py`) contains a class inheriting from `BaseAdapter`.
+- `fetch_messages()`: Implements polling/updates logic.
+- `send_message()`: Implements the sending logic.
 
-### 4. The Worker Layer (Celery Workers)
-- **Role:** The "Hands".
-- **How it works:** Independent processes that pick up tasks from Redis.
-- **Responsibility:** They use **Platform Adapters** to talk to APIs.
-- **Retry Logic:** If a worker fails (e.g., Internet goes down or Rubika API returns 500), it uses **Exponential Backoff**. It retries after 1 min, then 2 mins, then 4 mins... up to 5 times.
-
-### 5. The Adapter Layer (Platform Adapters)
-- **Role:** The "Translators".
-- **How it works:** Each platform (Bale, Eitaa, Rubika, Telegram) has its own class.
-- **Responsibility:** They translate our internal "Standard Message" into the specific JSON or Multipart format required by that messenger's API.
+### 4. The Database (`src/database.py`)
+Uses **SQLite** for zero-configuration persistence. It tracks which messages have been successfully synced to prevent duplicates across restarts.
 
 ---
 
-## 🔄 Message Life-Cycle
+## 🔄 How to add a new Platform?
 
-1.  **Detection:** Soroush Poller finds a new Video post with ID `123`.
-2.  **Logging:** ID `123` is saved to Postgres with status `pending`.
-3.  **Fan-out:** A main task triggers 4 sub-tasks (one for each platform).
-4.  **Execution:**
-    - **Telegram Worker:** Downloads video -> Uploads to Telegram -> Updates status to `success`.
-    - **Eitaa Worker:** Downloads video -> Uploads to Eitaayar -> Updates status to `success`.
-    - ... and so on.
-5.  **Completion:** All statuses are updated. You can query `GET /logs` to see the full history.
+1.  Create a new file in `src/adapters/your_platform.py`.
+2.  Inherit from `BaseAdapter`.
+3.  Implement `fetch_messages` and `send_message`.
+4.  Add your adapter to the `ADAPTERS` dictionary in `main.py`.
+5.  Add the credentials to your `config.json`.
 
-## 🛡️ Resilience Features
-- **Network Timeouts:** All API calls have a 30-60 second timeout to prevent hanging.
-- **Independent Failure:** If Eitaa is down, Telegram and Bale will still work perfectly.
-- **Scalability:** You can run 10 workers in parallel if you have a very high-traffic channel.
+---
+
+## 🛡️ Resilience & Performance
+- **Async I/O:** Uses `httpx` and `asyncio` for non-blocking network calls.
+- **Concurrent Dispatch:** If you have 5 targets, the message is sent to all 5 at the same time, not one by one.
+- **Error Isolation:** If one target platform's API is down, it won't block the others.

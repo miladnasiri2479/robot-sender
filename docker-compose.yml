@@ -1,77 +1,9 @@
 version: '3.8'
 
 services:
-  db:
-    image: postgres:15
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-yourpassword}
-      - POSTGRES_DB=${POSTGRES_DB:-robot_sender}
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  web:
+  app:
     build: .
-    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
-      - .:/app
-    environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-yourpassword}@db:5432/${POSTGRES_DB:-robot_sender}
-      - REDIS_URL=redis://redis:6379/0
-    env_file:
-      - .env
-    ports:
-      - "8000:8000"
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  worker:
-    build: .
-    command: celery -A src.tasks worker --loglevel=info
-    volumes:
-      - .:/app
-    environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-yourpassword}@db:5432/${POSTGRES_DB:-robot_sender}
-      - REDIS_URL=redis://redis:6379/0
-    env_file:
-      - .env
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  scheduler:
-    build: .
-    command: celery -A src.tasks beat --loglevel=info
-    volumes:
-      - .:/app
-    environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-yourpassword}@db:5432/${POSTGRES_DB:-robot_sender}
-      - REDIS_URL=redis://redis:6379/0
-    env_file:
-      - .env
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-volumes:
-  postgres_data:
+      - ./config.json:/app/config.json
+      - ./data:/app/data
+    restart: always
