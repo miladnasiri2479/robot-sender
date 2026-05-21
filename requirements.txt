@@ -5,4 +5,6 @@ pydantic
 pydantic-settings
 pytest
 pytest-asyncio
+pytest-httpx
+pytest-mock
 ruff
