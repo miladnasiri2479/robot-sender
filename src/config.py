@@ -1,30 +1,44 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Optional
+import os
+import json
+import logging
+from pathlib import Path
+from typing import Dict, Any
+from .models import AppConfig
 
-class Settings(BaseSettings):
-    # Database
-    DATABASE_URL: str = "postgresql://postgres:yourpassword@db:5432/robot_sender"
-    
-    # Redis
-    REDIS_URL: str = "redis://redis:6379/0"
-    
-    # Bot Tokens
-    SOROUSH_TOKEN: str
-    TELEGRAM_TOKEN: str
-    EITAA_TOKEN: str
-    RUBIKA_TOKEN: str
-    BALE_TOKEN: str
-    
-    # Channels
-    SOROUSH_CHANNEL_ID: str
-    TELEGRAM_CHANNEL_ID: str
-    EITAA_CHANNEL_ID: str
-    RUBIKA_CHANNEL_ID: str
-    BALE_CHANNEL_ID: str
-    
-    # Polling Interval (seconds)
-    POLLING_INTERVAL: int = 60
+logger = logging.getLogger(__name__)
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+def get_secret(key: str, default: Any = None) -> Any:
+    """Retrieve secret from environment or Docker secret file."""
+    # 1. Check environment variable
+    val = os.getenv(key)
+    if val is not None: return val
+    
+    # 2. Check Docker secret file
+    secret_path = Path(f"/run/secrets/{key.lower()}")
+    if secret_path.exists():
+        return secret_path.read_text().strip()
+    
+    return default
 
-settings = Settings()
+def load_app_config() -> AppConfig:
+    # Load from config.json if exists
+    config_data = {}
+    if os.path.exists("config.json"):
+        with open("config.json", "r", encoding="utf-8") as f:
+            config_data = json.load(f)
+
+    # Override with environment variables for credentials
+    # e.g. TELEGRAM_TOKEN, SOROUSH_TOKEN
+    if "credentials" not in config_data:
+        config_data["credentials"] = {}
+
+    platforms = ["telegram", "soroush", "bale", "rubika", "eitaa"]
+    for p in platforms:
+        token = get_secret(f"{p.upper()}_TOKEN")
+        if token:
+            if p not in config_data["credentials"]:
+                config_data["credentials"][p] = {}
+            config_data["credentials"][p]["token"] = token
+
+    # Final validation with Pydantic
+    return AppConfig(**config_data)

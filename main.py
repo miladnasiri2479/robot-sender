@@ -1,75 +1,71 @@
 import asyncio
-import json
 import logging
-import os
+from fastapi import FastAPI
+import uvicorn
+from src.config import load_app_config
 from src.database import Database
 from src.orchestrator import Orchestrator
+from src.utils.media import MediaManager
 from src.adapters.telegram import TelegramAdapter
 from src.adapters.soroush import SoroushAdapter
 from src.adapters.bale import BaleAdapter
 from src.adapters.eitaa import EitaaAdapter
 from src.adapters.rubika import RubikaAdapter
+from src.models import PlatformConfig
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+app = FastAPI()
+orchestrator = None
 
-ADAPTERS = {
-    "telegram": TelegramAdapter,
-    "soroush": SoroushAdapter,
-    "bale": BaleAdapter,
-    "eitaa": EitaaAdapter,
-    "rubika": RubikaAdapter
-}
+@app.get("/health")
+def health():
+    return {"status": "healthy", "orchestrator_running": orchestrator.is_running if orchestrator else False}
 
-def load_config(path: str = "config.json"):
-    if not os.path.exists(path):
-        raise FileNotFoundError(f"Config file not found: {path}")
-    with open(path, 'r', encoding='utf-8') as f:
-        return json.load(f)
+async def run_sync():
+    global orchestrator
+    config = load_app_config()
+    
+    # Configure logging level
+    logging.getLogger().setLevel(config.log_level)
+    
+    db = Database(config.db_path)
+    media_manager = MediaManager(config.cache_dir)
+    
+    adapters_map = {
+        "telegram": TelegramAdapter,
+        "soroush": SoroushAdapter,
+        "bale": BaleAdapter,
+        "eitaa": EitaaAdapter,
+        "rubika": RubikaAdapter
+    }
+    
+    # Initialize Source
+    source_cls = adapters_map.get(config.source)
+    source_creds = config.credentials.get(config.source, {})
+    source_p_config = PlatformConfig(
+        token=source_creds.get("token", ""),
+        channel_id=config.source_channel_id,
+        name=f"Source({config.source})"
+    )
+    source_adapter = source_cls(source_p_config, media_manager)
+    
+    # Initialize Targets
+    targets = []
+    for t_name, t_channel_id in config.targets.items():
+        t_cls = adapters_map.get(t_name)
+        t_creds = config.credentials.get(t_name, {})
+        t_p_config = PlatformConfig(
+            token=t_creds.get("token", ""),
+            channel_id=t_channel_id,
+            name=f"Target({t_name})"
+        )
+        targets.append(t_cls(t_p_config, media_manager))
+    
+    orchestrator = Orchestrator(source_adapter, targets, db)
+    await orchestrator.start(interval=config.interval)
 
-async def main():
-    try:
-        config = load_config()
-        
-        # Ensure data directory exists for SQLite
-        os.makedirs("data", exist_ok=True)
-        db = Database("data/sync.db")
-
-        # Initialize Source
-        source_name = config["source"]
-        source_config = config["credentials"].get(source_name, {})
-        source_config["channel_id"] = config["source_channel_id"]
-        source_config["name"] = f"Source({source_name})"
-        
-        if source_name not in ADAPTERS:
-            raise ValueError(f"Unsupported source platform: {source_name}")
-        
-        source_adapter = ADAPTERS[source_name](source_config)
-
-        # Initialize Targets
-        target_adapters = []
-        for t_name, t_channel_id in config["targets"].items():
-            if t_name not in ADAPTERS:
-                logger.warning(f"Unsupported target platform: {t_name}")
-                continue
-            
-            t_config = config["credentials"].get(t_name, {})
-            t_config["channel_id"] = t_channel_id
-            t_config["name"] = f"Target({t_name})"
-            target_adapters.append(ADAPTERS[t_name](t_config))
-
-        if not target_adapters:
-            raise ValueError("No valid targets configured")
-
-        orchestrator = Orchestrator(source_adapter, target_adapters, db)
-        await orchestrator.start(interval=config.get("interval", 60))
-
-    except Exception as e:
-        logger.error(f"Main execution failed: {e}")
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(run_sync())
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    uvicorn.run(app, host="0.0.0.0", port=8000)
