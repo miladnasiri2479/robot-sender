@@ -30,11 +30,11 @@ A flexible Python-based message synchronization tool. Unlike standard bots, this
 
 ---
 
-## 🚀 Quick Setup (One-Click)
+## 🚀 Quick Setup (Guided Wizard)
 
 ### 🔹 Windows
 1. Right-click on **`setup.ps1`** and select **"Run with PowerShell"**.
-2. Follow the interactive prompts to enter your tokens and channel IDs.
+2. Follow the guided step-by-step wizard (includes examples for ID formats and platform selection).
 3. Choose `y` when asked to launch with Docker.
 
 ### 🔹 Linux / macOS

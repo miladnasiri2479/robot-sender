@@ -6,84 +6,116 @@
 CYAN='\033[0;36m'
 YELLOW='\033[1;33m'
 GREEN='\033[0;32m'
+GRAY='\033[0;90m'
 WHITE='\033[1;37m'
+RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-echo -e "${CYAN}==========================================${NC}"
-echo -e "${CYAN}   Welcome to Robot Sender Setup        ${NC}"
-echo -e "${CYAN}==========================================${NC}"
-
-# 1. Gather User Input
-echo -e "\n${YELLOW}[1/3] Platform Configuration${NC}"
-read -p "Enter SOURCE platform (soroush, telegram, bale, rubika, eitaa): " source
-read -p "Enter TARGET platforms (comma separated, e.g: telegram,eitaa,bale): " targets_raw
-
-# Get Source details
-read -p "Enter Source Channel ID: " source_id
-
-# Function to get credentials
-get_creds() {
-    local platform=$1
-    echo -e "\n${GREEN}--- Configuration for [$platform] ---${NC}"
-    case $platform in
-        soroush)
-            read -p "Enter Soroush Bot Token: " token
-            echo "$token"
-            ;;
-        telegram)
-            read -p "Enter Telegram Bot Token: " token
-            echo "$token"
-            ;;
-        eitaa)
-            read -p "Enter Eitaayar API Token: " token
-            echo "$token"
-            ;;
-        rubika)
-            read -p "Enter Rubika Bot Token: " token
-            echo "$token"
-            ;;
-        bale)
-            read -p "Enter Bale Bot Token: " token
-            echo "$token"
-            ;;
-    esac
+show_header() {
+    clear
+    echo -e "${CYAN}==========================================${NC}"
+    echo -e "${CYAN}   Welcome to Robot Sender Setup        ${NC}"
+    echo -e "${CYAN}==========================================${NC}"
 }
 
-# Credentials gathering
-source_token=$(get_creds "$source")
+platforms=("telegram" "bale" "eitaa" "rubika" "soroush")
 
-# Target mapping
-IFS=',' read -ra ADDR <<< "$targets_raw"
-target_mapping=""
-credentials_json="\"$source\": {\"token\": \"$source_token\"}"
+declare -A examples
+examples["telegram"]="@channelname (Public) or -100xxxx (Private)"
+examples["bale"]="cxxxx (Example: c0221345678)"
+examples["eitaa"]="@channelname"
+examples["rubika"]="@channelname or cxxxx"
+examples["soroush"]="channel_id"
 
-for t in "${ADDR[@]}"; do
-    t=$(echo "$t" | xargs) # trim
-    read -p "Enter Channel ID for Target [$t]: " t_id
+declare -A token_names
+token_names["telegram"]="Bot Token (from @BotFather)"
+token_names["bale"]="Bot Token (from @BotFather)"
+token_names["eitaa"]="Eitaayar API Token (from eitaayar.ir)"
+token_names["rubika"]="Bot Token (from @BotFather)"
+token_names["soroush"]="Bot Token (from @mrbot)"
+
+get_platform_selection() {
+    local title=$1
+    echo -e "\n${GRAY}$title${NC}"
+    for i in "${!platforms[@]}"; do
+        echo "  $((i + 1)). ${platforms[$i]}"
+    done
     
-    if [[ -z "$target_mapping" ]]; then
-        target_mapping="\"$t\": \"$t_id\""
+    local choice=-1
+    while (( choice < 1 || choice > ${#platforms[@]} )); do
+        read -p "Select a platform (1-${#platforms[@]}): " input
+        if [[ "$input" =~ ^[0-9]+$ ]]; then
+            choice=$input
+            if (( choice < 1 || choice > ${#platforms[@]} )); then
+                echo -e "${RED}Invalid choice.${NC}"
+            fi
+        else
+            echo -e "${RED}Please enter a number.${NC}"
+        fi
+    done
+    echo "${platforms[$((choice - 1))]}"
+}
+
+show_header
+
+# 1. Source Configuration
+echo -e "\n${YELLOW}[1/3] Source Configuration (Where to read from)${NC}"
+source_platform=$(get_platform_selection "Select the SOURCE platform:")
+
+echo -e "\n${GREEN}Configuring $source_platform as source...${NC}"
+source_example=${examples[$source_platform]}
+read -p "Enter Source Channel ID (Example: $source_example): " source_id
+
+echo -e "\n${GRAY}--- Why is a token needed? ---${NC}"
+echo -e "${GRAY}To read messages from $source_platform, the bot must be an administrator in the channel.${NC}"
+source_token_name=${token_names[$source_platform]}
+read -p "Enter $source_token_name: " source_token
+
+# Initialize JSON fragments
+credentials_json="\"$source_platform\": {\"token\": \"$source_token\"}"
+target_mapping_json=""
+
+# 2. Target Configuration
+echo -e "\n${YELLOW}[2/3] Target Configuration (Where to send to)${NC}"
+add_more="y"
+while [[ "$add_more" == "y" ]]; do
+    target_platform=$(get_platform_selection "Select a TARGET platform:")
+
+    target_example=${examples[$target_platform]}
+    read -p "Enter Channel ID for Target [$target_platform] (Example: $target_example): " target_id
+    
+    if [[ -z "$target_mapping_json" ]]; then
+        target_mapping_json="\"$target_platform\": \"$target_id\""
     else
-        target_mapping="$target_mapping, \"$t\": \"$t_id\""
+        target_mapping_json="$target_mapping_json, \"$target_platform\": \"$target_id\""
     fi
 
-    # Check if we already got creds for this platform (if it was the source)
-    if [[ "$t" != "$source" ]]; then
-        t_token=$(get_creds "$t")
-        credentials_json="$credentials_json, \"$t\": {\"token\": \"$t_token\"}"
+    # Check if we already got creds for this platform
+    if [[ "$target_platform" != "$source_platform" ]]; then
+        target_token_name=${token_names[$target_platform]}
+        read -p "Enter $target_token_name: " target_token
+        credentials_json="$credentials_json, \"$target_platform\": {\"token\": \"$target_token\"}"
     fi
+
+    read -p "$(echo -e "\nDo you want to add another target platform? (y/n): ")" add_more
+    add_more=$(echo "$add_more" | tr '[:upper:]' '[:lower:]')
 done
 
-# 2. Generate config.json
-echo -e "\n${YELLOW}[2/3] Generating Configuration...${NC}"
+# 3. Global Settings
+echo -e "\n${YELLOW}[3/3] Global Settings${NC}"
+read -p "Enter sync interval in seconds (Default: 60): " interval
+if [[ -z "$interval" ]]; then interval=60; fi
+
+# 4. Generate config.json
+echo -e "\n${YELLOW}Generating Configuration...${NC}"
 
 cat <<EOF > config.json
 {
-  "source": "$source",
+  "source": "$source_platform",
   "source_channel_id": "$source_id",
-  "interval": 60,
+  "interval": $interval,
   "targets": {
-    $target_mapping
+    $target_mapping_json
   },
   "credentials": {
     $credentials_json
@@ -91,11 +123,12 @@ cat <<EOF > config.json
 }
 EOF
 
-# 3. Finalize
-echo -e "\n${YELLOW}[3/3] Setup Complete!${NC}"
-echo -e "${GREEN}All files have been generated and configured.${NC}"
+# 5. Finalize
+echo -e "\n${GREEN}Setup Complete!${NC}"
+echo -e "${GREEN}The 'config.json' file has been created successfully.${NC}"
 
-read -p "Do you want to run the system now via Docker? (y/n): " run_now
+read -p "$(echo -e "\nDo you want to run the system now via Docker? (y/n): ")" run_now
+run_now=$(echo "$run_now" | tr '[:upper:]' '[:lower:]')
 if [[ "$run_now" == "y" ]]; then
     echo -e "${CYAN}Launching Docker Compose...${NC}"
     docker-compose up -d --build
