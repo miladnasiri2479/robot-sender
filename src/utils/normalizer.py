@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 def normalize_soroush_message(msg: Dict[str, Any]) -> Dict[str, Any]:
     """

@@ -18,7 +18,8 @@ orchestrator = None
 
 @app.get("/health")
 def health():
-    return {"status": "healthy", "orchestrator_running": orchestrator.is_running if orchestrator else False}
+    is_running = orchestrator.is_running if orchestrator else False
+    return {"status": "healthy", "orchestrator_running": is_running}
 
 async def run_sync():
     global orchestrator

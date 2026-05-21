@@ -1,17 +1,16 @@
 import httpx
 import logging
-from typing import List, Optional
+from typing import List
 from .base import BaseAdapter
-from src.models import UnifiedMessage, MessageType
+from src.models import UnifiedMessage, MessageType, PlatformConfig
+from src.utils.media import MediaManager
 
 logger = logging.getLogger(__name__)
 
 class BaleAdapter(BaseAdapter):
-    def __init__(self, config: dict):
-        super().__init__(config)
-        self.token = config["token"]
-        self.channel_id = config["channel_id"]
-        self.base_url = f"https://tapi.bale.ai/bot{self.token}"
+    def __init__(self, config: PlatformConfig, media_manager: MediaManager):
+        super().__init__(config, media_manager)
+        self.base_url = f"https://tapi.bale.ai/bot{self.config.token}"
         self.last_update_id = 0
 
     async def fetch_messages(self) -> List[UnifiedMessage]:
@@ -21,7 +20,8 @@ class BaleAdapter(BaseAdapter):
             async with httpx.AsyncClient() as client:
                 response = await client.get(url, params=params, timeout=10.0)
                 data = response.json()
-                if not data.get("ok"): return []
+                if not data.get("ok"):
+                    return []
                 
                 updates = data.get("result", [])
                 unified = []
@@ -35,9 +35,9 @@ class BaleAdapter(BaseAdapter):
             logger.error(f"Bale fetch failed: {e}")
             return []
 
-    async def send_message(self, message: UnifiedMessage) -> bool:
+    async def _do_send(self, message: UnifiedMessage) -> bool:
         method = "sendMessage"
-        payload = {"chat_id": self.channel_id}
+        payload = {"chat_id": self.config.channel_id}
         
         if message.type == MessageType.TEXT:
             payload["text"] = message.text
@@ -62,8 +62,10 @@ class BaleAdapter(BaseAdapter):
     def _normalize(self, msg: dict) -> UnifiedMessage:
         m_type = MessageType.TEXT
         file_url = None
-        if "photo" in msg: m_type = MessageType.IMAGE
-        elif "video" in msg: m_type = MessageType.VIDEO
+        if "photo" in msg:
+            m_type = MessageType.IMAGE
+        elif "video" in msg:
+            m_type = MessageType.VIDEO
         
         return UnifiedMessage(
             source_id=str(msg["message_id"]),

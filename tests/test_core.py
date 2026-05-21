@@ -1,8 +1,8 @@
 import pytest
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from src.orchestrator import Orchestrator
-from src.models import UnifiedMessage, MessageType, PlatformConfig
+from src.models import UnifiedMessage, MessageType
 from src.utils.resilience import CircuitBreaker, TokenBucket, CircuitState
 
 @pytest.mark.asyncio

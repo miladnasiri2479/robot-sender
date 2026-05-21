@@ -2,7 +2,7 @@ import os
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any
 from .models import AppConfig
 
 logger = logging.getLogger(__name__)
@@ -11,7 +11,8 @@ def get_secret(key: str, default: Any = None) -> Any:
     """Retrieve secret from environment or Docker secret file."""
     # 1. Check environment variable
     val = os.getenv(key)
-    if val is not None: return val
+    if val is not None:
+        return val
     
     # 2. Check Docker secret file
     secret_path = Path(f"/run/secrets/{key.lower()}")
@@ -28,7 +29,6 @@ def load_app_config() -> AppConfig:
             config_data = json.load(f)
 
     # Override with environment variables for credentials
-    # e.g. TELEGRAM_TOKEN, SOROUSH_TOKEN
     if "credentials" not in config_data:
         config_data["credentials"] = {}
 

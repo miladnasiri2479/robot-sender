@@ -1,8 +1,8 @@
 import httpx
-import os
 import hashlib
 import logging
 from pathlib import Path
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,8 @@ class MediaManager:
 
     async def get_media(self, url: str) -> Optional[Path]:
         """Download media using streaming and return local path."""
-        if not url: return None
+        if not url:
+            return None
         
         cache_path = self._get_cache_path(url)
         if cache_path.exists():
@@ -35,7 +36,8 @@ class MediaManager:
             return cache_path
         except Exception as e:
             logger.error(f"Failed to download media {url}: {e}")
-            if cache_path.exists(): cache_path.unlink()
+            if cache_path.exists():
+                cache_path.unlink()
             return None
 
     def cleanup(self):

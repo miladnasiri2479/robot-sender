@@ -20,7 +20,8 @@ class TelegramAdapter(BaseAdapter):
             async with httpx.AsyncClient() as client:
                 response = await client.get(url, params=params, timeout=15.0)
                 data = response.json()
-                if not data.get("ok"): return []
+                if not data.get("ok"):
+                    return []
                 
                 updates = data.get("result", [])
                 unified = []
@@ -43,9 +44,12 @@ class TelegramAdapter(BaseAdapter):
             params["text"] = message.text
         else:
             local_path = await self.media_manager.get_media(message.file_url)
-            if not local_path: return False
+            if not local_path:
+                return False
             
-            file_field = "photo" if message.type == MessageType.IMAGE else "video" if message.type == MessageType.VIDEO else "document"
+            file_field = ("photo" if message.type == MessageType.IMAGE 
+                          else "video" if message.type == MessageType.VIDEO 
+                          else "document")
             method = f"send{file_field.capitalize()}"
             params["caption"] = message.text
             files = {file_field: open(local_path, "rb")}
@@ -57,14 +61,14 @@ class TelegramAdapter(BaseAdapter):
                 return response.status_code == 200
         finally:
             if files:
-                for f in files.values(): f.close()
+                for f in files.values():
+                    f.close()
 
     def _normalize(self, msg: dict) -> UnifiedMessage:
-        # Simplified normalization for brevity
         return UnifiedMessage(
             source_id=str(msg["message_id"]),
             source_platform="telegram",
-            type=MessageType.TEXT, # Real implementation would detect media
+            type=MessageType.TEXT,
             text=msg.get("text") or msg.get("caption"),
             raw_data=msg
         )
