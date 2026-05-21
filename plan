@@ -1,0 +1,80 @@
+You are a senior software architect and full-stack engineer.
+
+I want you to design and implement a production-ready application that synchronizes messages between multiple Iranian messaging platforms and Telegram.
+
+## Goal:
+Whenever a new post/message is published in a Soroush channel, the same content must automatically be reposted to:
+- Eitaa channel
+- Rubika channel
+- Bale channel
+- Telegram channel
+
+## Requirements:
+
+### 1. Core functionality
+- Monitor a specific Soroush channel in real time (via API, webhook, scraping, or polling if API is unavailable)
+- Detect new posts (text, image, video, file, link)
+- Normalize content into a unified message format
+- Forward the content to:
+  - Eitaa channel
+  - Rubika channel
+  - Bale channel
+  - Telegram channel
+
+### 2. Architecture
+- Design as a modular system:
+  - Ingestion service (Soroush listener)
+  - Message processing pipeline
+  - Platform adapters (one adapter per messenger)
+  - Retry + error handling system
+- Support async processing (Node.js or Python preferred)
+
+### 3. Tech stack (choose best option and justify)
+- Backend: Node.js (NestJS/Express) OR Python (FastAPI)
+- Queue system: Redis / RabbitMQ (if needed)
+- Storage: MongoDB or PostgreSQL for message logs
+- Deployment: Docker-based
+
+### 4. Platform integration
+For each platform (Soroush, Eitaa, Rubika, Bale, Telegram):
+- Use official APIs if available
+- If no API exists, propose alternative legal methods (no breaking ToS)
+- Build adapter interface like:
+  sendMessage(platform, content)
+
+### 5. Features
+- Duplicate prevention (do not repost same message twice)
+- Media support (images, videos, documents)
+- Logging system
+- Failure retry mechanism
+- Config file for channel mapping
+
+### 6. Configuration example
+Provide a config like:
+
+{
+  "soroush_channel_id": "...",
+  "targets": {
+    "telegram": "@channel",
+    "eitaa": "...",
+    "rubika": "...",
+    "bale": "..."
+  }
+}
+
+### 7. Output required from you:
+- System architecture diagram (text-based)
+- Full backend code (production level)
+- API integration modules per platform
+- Setup instructions
+- Dockerfile + docker-compose
+- Environment variables example (.env)
+
+### 8. Important constraints:
+- Must be production-ready
+- Must handle rate limits
+- Must be extensible (add new platforms easily)
+- No pseudo-code only — provide real implementation
+- Handle Persian/RTL text correctly
+
+Now build the full system step by step.
